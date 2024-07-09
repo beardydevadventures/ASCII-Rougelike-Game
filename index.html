@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Roguelike - Compact</title>
+    <style>
+        body {
+            font-family: monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #222;
+            color: #fff;
+        }
+        #game-container {
+            display: flex;
+        }
+        #game {
+            border: 1px solid #fff;
+            padding: 10px;
+        }
+        #sidebar {
+            margin-left: 20px;
+            width: 250px;
+        }
+        #minimap {
+            border: 1px solid #fff;
+            margin-top: 10px;
+            font-size: 6px;
+            line-height: 6px;
+        }
+        #messages {
+            margin-top: 10px;
+            height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div>
+            <div id="game"></div>
+            <div id="messages"></div>
+            <div id="minimap"></div>
+        </div>
+        <div id="sidebar">
+            <div id="legend">
+                <h3>Legend:</h3>
+                <p>@ - Player</p>
+                <p>$ - Treasure</p>
+                <p># - Wall</p>
+                <p>. - Floor</p>
+                <p>% - Health Potion</p>
+                <p>> - Stairs Down</p>
+                <p>W - Weapon</p>
+                <p>A - Armor</p>
+                <p>g - Goblin</p>
+                <p>o - Orc</p>
+                <p>T - Troll</p>
+            </div>
+            <div id="stats"></div>
+            <div id="inventory"></div>
+        </div>
+    </div>
+    <script>
+        const width = 60;
+        const height = 30;
+        let playerX, playerY;
+        let gameMap = [];
+        let visibilityMap = [];
+        let enemies = [];
+        let items = [];
+        let level = 1;
+        let score = 0;
+        let playerHealth = 100;
+        let playerAttack = 10;
+        let playerDefense = 0;
+        let inventory = {
+            weapon: { name: "Fists", attack: 10 },
+            armor: { name: "Clothes", defense: 0 }
+        };
+
+        function createRoom(x, y, w, h) {
+            for (let i = y; i < y + h; i++) {
+                for (let j = x; j < x + w; j++) {
+                    gameMap[i][j] = '.';
+                }
+            }
+        }
+
+        function createHallway(x1, y1, x2, y2) {
+            let x = x1, y = y1;
+            while (x !== x2 || y !== y2) {
+                gameMap[y][x] = '.';
+                x += Math.sign(x2 - x);
+                if (x === x2) y += Math.sign(y2 - y);
+            }
+            gameMap[y2][x2] = '.';
+        }
+
+        function initMap() {
+            gameMap = [];
+            visibilityMap = [];
+            enemies = [];
+            items = [];
+            for (let y = 0; y < height; y++) {
+                gameMap[y] = [];
+                visibilityMap[y] = [];
+                for (let x = 0; x < width; x++) {
+                    gameMap[y][x] = '#';
+                    visibilityMap[y][x] = false;
+                }
+            }
+
+            // Create rooms
+            let rooms = [];
+            for (let i = 0; i < 8; i++) {
+                let room = {
+                    x: Math.floor(Math.random() * (width - 15)) + 1,
+                    y: Math.floor(Math.random() * (height - 10)) + 1,
+                    w: Math.floor(Math.random() * 8) + 7,
+                    h: Math.floor(Math.random() * 6) + 5
+                };
+                createRoom(room.x, room.y, room.w, room.h);
+                rooms.push(room);
+            }
+
+            // Connect rooms
+            for (let i = 0; i < rooms.length - 1; i++) {
+                let room1 = rooms[i];
+                let room2 = rooms[i + 1];
+                createHallway(room1.x + Math.floor(room1.w/2), room1.y + Math.floor(room1.h/2),
+                              room2.x + Math.floor(room2.w/2), room2.y + Math.floor(room2.h/2));
+            }
+
+            // Place player in first room
+            playerX = rooms[0].x + Math.floor(rooms[0].w/2);
+            playerY = rooms[0].y + Math.floor(rooms[0].h/2);
+
+            // Add items
+            addItem(rooms[1].x + 1, rooms[1].y + 1, '$');
+            addItem(rooms[2].x + 1, rooms[2].y + 1, '%');
+            addItem(rooms[3].x + 1, rooms[3].y + 1, 'W');
+            addItem(rooms[4].x + 1, rooms[4].y + 1, 'A');
+
+            // Add enemies
+            addEnemy(rooms[5].x + 1, rooms[5].y + 1, 'g');
+            addEnemy(rooms[6].x + 1, rooms[6].y + 1, 'o');
+            addEnemy(rooms[7].x + 1, rooms[7].y + 1, 'T');
+
+            // Add stairs in last room
+            let lastRoom = rooms[rooms.length - 1];
+            gameMap[lastRoom.y + Math.floor(lastRoom.h/2)][lastRoom.x + Math.floor(lastRoom.w/2)] = '>';
+
+            updateVisibility();
+        }
+
+        function addItem(x, y, type) {
+            items.push({x, y, type});
+        }
+
+        function addEnemy(x, y, type) {
+            let health, attack;
+            switch(type) {
+                case 'g': health = 20 + level * 5; attack = 5 + level; break;
+                case 'o': health = 40 + level * 8; attack = 8 + level * 2; break;
+                case 'T': health = 80 + level * 12; attack = 12 + level * 3; break;
+            }
+            enemies.push({x, y, type, health, attack});
+        }
+
+        function updateVisibility() {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (Math.abs(x - playerX) <= 5 && Math.abs(y - playerY) <= 5) {
+                        visibilityMap[y][x] = true;
+                    }
+                }
+            }
+        }
+
+        function drawGame() {
+            let gameDiv = document.getElementById('game');
+            let mapString = '';
+            for (let y = Math.max(0, playerY - 5); y < Math.min(height, playerY + 6); y++) {
+                for (let x = Math.max(0, playerX - 10); x < Math.min(width, playerX + 11); x++) {
+                    if (!visibilityMap[y][x]) {
+                        mapString += '&nbsp;';
+                        continue;
+                    }
+                    if (x === playerX && y === playerY) {
+                        mapString += '@';
+                    } else {
+                        let enemy = enemies.find(e => e.x === x && e.y === y);
+                        if (enemy) {
+                            mapString += enemy.type;
+                        } else {
+                            let item = items.find(i => i.x === x && i.y === y);
+                            if (item) {
+                                mapString += item.type;
+                            } else {
+                                mapString += gameMap[y][x];
+                            }
+                        }
+                    }
+                }
+                mapString += '<br>';
+            }
+            gameDiv.innerHTML = mapString;
+
+            let statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `
+                <h3>Stats:</h3>
+                <p>Level: ${level}</p>
+                <p>Score: ${score}</p>
+                <p>Health: ${playerHealth}</p>
+                <p>Attack: ${playerAttack}</p>
+                <p>Defense: ${playerDefense}</p>
+            `;
+
+            let inventoryDiv = document.getElementById('inventory');
+            inventoryDiv.innerHTML = `
+                <h3>Inventory:</h3>
+                <p>Weapon: ${inventory.weapon.name} (+${inventory.weapon.attack} ATK)</p>
+                <p>Armor: ${inventory.armor.name} (+${inventory.armor.defense} DEF)</p>
+            `;
+
+            drawMinimap();
+        }
+
+        function drawMinimap() {
+            let minimapDiv = document.getElementById('minimap');
+            let mapString = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (x === playerX && y === playerY) {
+                        mapString += '@';
+                    } else if (visibilityMap[y][x]) {
+                        if (gameMap[y][x] === '.') {
+                            mapString += '·';
+                        } else if (gameMap[y][x] === '#') {
+                            mapString += '█';
+                        } else {
+                            mapString += gameMap[y][x];
+                        }
+                    } else {
+                        mapString += '&nbsp;';
+                    }
+                }
+                mapString += '<br>';
+            }
+            minimapDiv.innerHTML = mapString;
+        }
+
+        function movePlayer(dx, dy) {
+            let newX = playerX + dx;
+            let newY = playerY + dy;
+            
+            if (gameMap[newY][newX] !== '#') {
+                let enemy = enemies.find(e => e.x === newX && e.y === newY);
+                if (enemy) {
+                    combat(enemy);
+                } else {
+                    playerX = newX;
+                    playerY = newY;
+                    collectItem();
+                    if (gameMap[playerY][playerX] === '>') {
+                        nextLevel();
+                    }
+                }
+                updateVisibility();
+            }
+        }
+
+        function collectItem() {
+            let itemIndex = items.findIndex(i => i.x === playerX && i.y === playerY);
+            if (itemIndex !== -1) {
+                let item = items[itemIndex];
+                switch(item.type) {
+                    case '$':
+                        score += 100;
+                        addMessage("You found treasure! +100 score");
+                        break;
+                    case '%':
+                        playerHealth = Math.min(playerHealth + 20, 100);
+                        addMessage("You drink a health potion. +20 HP");
+                        break;
+                    case 'W':
+                        inventory.weapon = { name: "Sword", attack: 20 };
+                        updatePlayerStats();
+                        addMessage("You found a sword! +10 ATK");
+                        break;
+                    case 'A':
+                        inventory.armor = { name: "Chain Mail", defense: 10 };
+                        updatePlayerStats();
+                        addMessage("You found chain mail! +10 DEF");
+                        break;
+                }
+                items.splice(itemIndex, 1);
+            }
+        }
+
+        function updatePlayerStats() {
+            playerAttack = 10 + inventory.weapon.attack;
+            playerDefense = inventory.armor.defense;
+        }
+
+        function combat(enemy) {
+            let damage = Math.max(0, playerAttack - Math.floor(Math.random() * 5));
+            enemy.health -= damage;
+            addMessage(`You hit ${enemy.type} for ${damage} damage!`);
+            if (enemy.health <= 0) {
+                let index = enemies.indexOf(enemy);
+                enemies.splice(index, 1);
+                score += 50;
+                addMessage(`You defeated ${enemy.type}! +50 score`);
+            } else {
+                let enemyDamage = Math.max(0, enemy.attack - playerDefense - Math.floor(Math.random() * 3));
+                playerHealth -= enemyDamage;
+                addMessage(`${enemy.type} hit you for ${enemyDamage} damage!`);
+                if (playerHealth <= 0) {
+                    alert('Game Over! Your score: ' + score);
+                    initGame();
+                }
+            }
+        }
+
+        function moveEnemies() {
+            for (let enemy of enemies) {
+                if (Math.random() < 0.5) {  // 50% chance to move
+                    let dx = Math.floor(Math.random() * 3) - 1;
+                    let dy = Math.floor(Math.random() * 3) - 1;
+                    let newX = enemy.x + dx;
+                    let newY = enemy.y + dy;
+                    if (gameMap[newY][newX] === '.' && !enemies.some(e => e.x === newX && e.y === newY)) {
+                        enemy.x = newX;
+                        enemy.y = newY;
+                    }
+                }
+            }
+        }
+
+        function nextLevel() {
+            level++;
+            addMessage(`You descended to level ${level}!`);
+            initMap();
+            playerHealth = Math.min(playerHealth + 20, 100);  // Heal a bit between levels
+        }
+
+        function addMessage(msg) {
+            let messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += msg + '<br>';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function initGame() {
+            level = 1;
+            score = 0;
+            playerHealth = 100;
+            inventory = {
+                weapon: { name: "Fists", attack: 10 },
+                armor: { name: "Clothes", defense: 0 }
+            };
+            updatePlayerStats();
+            initMap();
+            addMessage("Welcome to the dungeon! Use arrow keys to move.");
+        }
+
+        document.addEventListener('keydown', (event) => {
+            switch(event.key) {
+                case 'ArrowUp': movePlayer(0, -1); break;
+                case 'ArrowDown': movePlayer(0, 1); break;
+                case 'ArrowLeft': movePlayer(-1, 0); break;
+                case 'ArrowRight': movePlayer(1, 0); break;
+            }
+            moveEnemies();
+            drawGame();
+        });
+
+        initGame();
+        drawGame();
+    </script>
+</body>
+</html>
