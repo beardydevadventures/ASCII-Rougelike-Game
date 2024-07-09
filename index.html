@@ -223,7 +223,8 @@
 
         function drawGame() {
             let gameDiv = document.getElementById('game-content');
-            gameDiv.style.fontSize = `${Math.floor(gameDiv.clientWidth / width)}px`;
+            //gameDiv.style.fontSize = `${Math.floor(gameDiv.clientWidth / width)}px`;
+            
             let mapString = '';
             for (let y = Math.max(0, playerY - 5); y < Math.min(height, playerY + 6); y++) {
                 for (let x = Math.max(0, playerX - 10); x < Math.min(width, playerX + 11); x++) {
