@@ -9,7 +9,7 @@
             font-family: monospace;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             height: 100vh;
             margin: 0;
             background-color: #222;
@@ -18,49 +18,41 @@
         #game-container {
             display: flex;
         }
-        #game {
-            border: 1px solid #fff;
-            padding: 10px;
-        }
         #sidebar {
-            margin-left: 20px;
-            width: 250px;
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
         }
         #minimap {
             border: 1px solid #fff;
-            margin-top: 10px;
+            margin-bottom: 10px;
             font-size: 6px;
             line-height: 6px;
         }
         #messages {
-            margin-top: 10px;
-            height: 100px;
+            border: 1px solid #fff;
+            height: 200px;
             overflow-y: auto;
+        }
+        #game {
+            border: 1px solid #fff;
+            padding: 10px;
+            width: 800px;
+            height: 600px;
+        }
+        #stats, #inventory, #legend {
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
+        <div id="sidebar">
+            <div id="minimap"></div>
+            <div id="messages"></div>
+        </div>
         <div>
             <div id="game"></div>
-            <div id="messages"></div>
-            <div id="minimap"></div>
-        </div>
-        <div id="sidebar">
-            <div id="legend">
-                <h3>Legend:</h3>
-                <p>@ - Player</p>
-                <p>$ - Treasure</p>
-                <p># - Wall</p>
-                <p>. - Floor</p>
-                <p>% - Health Potion</p>
-                <p>> - Stairs Down</p>
-                <p>W - Weapon</p>
-                <p>A - Armor</p>
-                <p>g - Goblin</p>
-                <p>o - Orc</p>
-                <p>T - Troll</p>
-            </div>
             <div id="stats"></div>
             <div id="inventory"></div>
         </div>
@@ -166,11 +158,11 @@
         }
 
         function addEnemy(x, y, type) {
-            let health, attack;
+            let health, attack, name;
             switch(type) {
-                case 'g': name = "gnome"; health = 20 + level * 5; attack = 5 + level; break;
-                case 'o': name = "orc"; health = 40 + level * 8; attack = 8 + level * 2; break;
-                case 'T': name = "troll"; health = 80 + level * 12; attack = 12 + level * 3; break;
+                case 'g': name = "Goblin"; health = 20 + level * 5; attack = 5 + level; break;
+                case 'o': name = "Orc"; health = 40 + level * 8; attack = 8 + level * 2; break;
+                case 'T': name = "Troll"; health = 80 + level * 12; attack = 12 + level * 3; break;
             }
             enemies.push({x, y, type, name, health, attack});
         }
