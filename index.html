@@ -36,6 +36,7 @@
             font-size: 6px;
             line-height: 6px;
             flex: 1;
+            white-space: pre;
         }
         #messages {
             border: 1px solid #fff;
@@ -170,13 +171,13 @@
             for (let i = 0; i < rooms.length - 1; i++) {
                 let room1 = rooms[i];
                 let room2 = rooms[i + 1];
-                createHallway(room1.x + Math.floor(room1.w/2), room1.y + Math.floor(room1.h/2),
-                              room2.x + Math.floor(room2.w/2), room2.y + Math.floor(room2.h/2));
+                createHallway(room1.x + Math.floor(room1.w / 2), room1.y + Math.floor(room1.h / 2),
+                    room2.x + Math.floor(room2.w / 2), room2.y + Math.floor(room2.h / 2));
             }
 
             // Place player in first room
-            playerX = rooms[0].x + Math.floor(rooms[0].w/2);
-            playerY = rooms[0].y + Math.floor(rooms[0].h/2);
+            playerX = rooms[0].x + Math.floor(rooms[0].w / 2);
+            playerY = rooms[0].y + Math.floor(rooms[0].h / 2);
 
             // Add items
             addItem(rooms[1].x + 1, rooms[1].y + 1, '$');
@@ -191,23 +192,23 @@
 
             // Add stairs in last room
             let lastRoom = rooms[rooms.length - 1];
-            gameMap[lastRoom.y + Math.floor(lastRoom.h/2)][lastRoom.x + Math.floor(lastRoom.w/2)] = '>';
+            gameMap[lastRoom.y + Math.floor(lastRoom.h / 2)][lastRoom.x + Math.floor(lastRoom.w / 2)] = '>';
 
             updateVisibility();
         }
 
         function addItem(x, y, type) {
-            items.push({x, y, type});
+            items.push({ x, y, type });
         }
 
         function addEnemy(x, y, type) {
             let health, attack, name;
-            switch(type) {
+            switch (type) {
                 case 'g': name = "Goblin"; health = 20 + level * 5; attack = 5 + level; break;
                 case 'o': name = "Orc"; health = 40 + level * 8; attack = 8 + level * 2; break;
                 case 'T': name = "Troll"; health = 80 + level * 12; attack = 12 + level * 3; break;
             }
-            enemies.push({x, y, type, name, health, attack});
+            enemies.push({ x, y, type, name, health, attack });
         }
 
         function updateVisibility() {
@@ -297,7 +298,7 @@
         function movePlayer(dx, dy) {
             let newX = playerX + dx;
             let newY = playerY + dy;
-            
+
             if (gameMap[newY][newX] !== '#') {
                 let enemy = enemies.find(e => e.x === newX && e.y === newY);
                 if (enemy) {
@@ -318,7 +319,7 @@
             let itemIndex = items.findIndex(i => i.x === playerX && i.y === playerY);
             if (itemIndex !== -1) {
                 let item = items[itemIndex];
-                switch(item.type) {
+                switch (item.type) {
                     case '$':
                         score += 100;
                         addMessage("You found treasure! +100 score");
@@ -409,7 +410,7 @@
         }
 
         document.addEventListener('keydown', (event) => {
-            switch(event.key) {
+            switch (event.key) {
                 case 'ArrowUp': movePlayer(0, -1); break;
                 case 'ArrowDown': movePlayer(0, 1); break;
                 case 'ArrowLeft': movePlayer(-1, 0); break;
